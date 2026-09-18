@@ -1,0 +1,7 @@
+[
+  { "date": "2026-06-10", "cost": 2.04, "roi": 610.78, "cpa": 0.68, "conversions": 3 },
+  { "date": "2026-06-11", "cost": 25.85, "roi": 180.50, "cpa": 0.86, "conversions": 30 },
+  { "date": "2026-06-12", "cost": 44.36, "roi": 161.47, "cpa": 1.23, "conversions": 36 },
+  { "date": "2026-06-13", "cost": 55.65, "roi": 56.33, "cpa": 0.79, "conversions": 70 },
+  { "date": "2026-06-14", "cost": 63.75, "roi": 357.25, "cpa": 0.71, "conversions": 90 }
+]

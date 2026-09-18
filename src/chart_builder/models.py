@@ -25,26 +25,9 @@ class ChartData(BaseModel):
     def dates(self) -> list[date]:
         return [p.date for p in self.points]
 
-    @property
-    def costs(self) -> list[float]:
-        return [p.cost for p in self.points]
-
-    @property
-    def rois(self) -> list[float]:
-        return [p.roi for p in self.points]
-
-    @property
-    def cpas(self) -> list[float]:
-        return [p.cpa for p in self.points]
-
-    @property
-    def conversions_values(self) -> list[int]:
-        return [p.conversions for p in self.points]
-
 
 class ChartConfig(BaseModel):
     """Visual and dimensional configuration for the chart."""
 
     width: int = 1200
     height: int = 600
-    date_format: str = "%d.%m.%Y"

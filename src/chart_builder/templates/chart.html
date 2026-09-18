@@ -7,71 +7,162 @@
 <script src="https://cdn.jsdelivr.net/npm/highcharts@11/highcharts.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; min-height: 100vh; }
   #container { width: 1200px; height: 600px; }
+  .toggle-btn { margin-top: 24px; padding: 10px 20px; border: 1px solid #ddd; border-radius: 8px; background: #fff; font-size: 13px; cursor: pointer; color: #555; }
+  .toggle-btn:hover { background: #f9f9f9; border-color: #bbb; }
+  #editor { display: none; margin-top: 16px; background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); width: 1200px; }
+  #editor h3 { margin-bottom: 8px; font-size: 14px; color: #333; }
+  #editor p { margin-bottom: 12px; font-size: 12px; color: #888; }
+  #json-input { width: 100%; height: 200px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: 'SF Mono', Menlo, monospace; font-size: 12px; resize: vertical; line-height: 1.5; }
+  #json-input:focus { outline: none; border-color: #9C27B0; }
+  #json-input.error { border-color: #c62828; background: #fff5f5; }
+  .error-msg { color: #c62828; font-size: 12px; margin-top: 8px; min-height: 18px; }
+  .btn-row { margin-top: 12px; display: flex; gap: 8px; }
+  .btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .btn-update { background: #1976D2; color: #fff; }
+  .btn-update:hover { background: #1565C0; }
+  .btn-reset { background: #f5f5f5; color: #555; border: 1px solid #ddd; }
+  .btn-reset:hover { background: #eee; }
 </style>
 </head>
 <body>
 <div id="container"></div>
+<button class="toggle-btn" onclick="toggleEditor()">Use your own data</button>
+<div id="editor">
+  <h3>Paste JSON data</h3>
+  <p>Array of objects with fields: date, cost, roi, cpa, conversions</p>
+  <textarea id="json-input" spellcheck="false"></textarea>
+  <div class="error-msg" id="error-msg"></div>
+  <div class="btn-row">
+    <button class="btn btn-update" onclick="applyJson()">Apply</button>
+    <button class="btn btn-reset" onclick="resetData()">Reset to default</button>
+  </div>
+</div>
 <script>
 const chartData = {{ DATA_JSON }};
+const chartConfig = {{ CHART_CONFIG }};
 
-Highcharts.chart('container', {
-  chart: {
-    backgroundColor: '#FFF0F3',
-    style: { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
-    spacingTop: 20,
-    spacingRight: 20,
-    spacingBottom: 10,
-    spacingLeft: 10,
-  },
-  title: { text: null },
-  legend: { enabled: false },
-  tooltip: {
-    shared: true,
-    crosshairs: true,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderColor: '#ccc',
-    borderRadius: 8,
-    shadow: true,
-    style: { fontSize: '12px' },
-  },
-  xAxis: {
-    categories: chartData.dates,
-    crosshair: { width: 1, color: 'rgba(0,0,0,0.15)' },
-    labels: { enabled: false },
-    lineWidth: 0,
-    tickLength: 0,
-    gridLineWidth: 0,
-  },
-  yAxis: chartData.yAxes,
-  series: chartData.series,
-  plotOptions: {
-    series: {
-      animation: { duration: 800 },
-      marker: { enabled: true, radius: 3 },
+const jsonInput = document.getElementById('json-input');
+const errorMsg = document.getElementById('error-msg');
+const editorEl = document.getElementById('editor');
+const toggleBtn = document.querySelector('.toggle-btn');
+
+let chart;
+
+function renderChart(data) {
+  const opts = {
+    chart: {
+      backgroundColor: '#FFF0F3',
+      style: { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+      spacingTop: 20, spacingRight: 20, spacingBottom: 10, spacingLeft: 10,
     },
-    area: {
-      fillOpacity: 0.3,
-      marker: { enabled: false },
-      lineWidth: 2,
+    title: { text: null },
+    legend: { enabled: false },
+    tooltip: {
+      shared: true, crosshairs: true,
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderColor: '#ccc', borderRadius: 8, shadow: true,
+      style: { fontSize: '12px' },
     },
-    spline: {
-      lineWidth: 3,
-      marker: { enabled: false },
+    xAxis: {
+      categories: data.map(d => d.date),
+      crosshair: { width: 1, color: 'rgba(0,0,0,0.15)' },
+      labels: { enabled: false }, lineWidth: 0, tickLength: 0, gridLineWidth: 0,
     },
-    line: {
-      lineWidth: 2,
-      marker: { symbol: 'square', radius: 4 },
+    yAxis: chartConfig.yAxes,
+    series: [
+      { name: 'Cost ($)', type: 'area', data: data.map(d => d.cost), yAxis: 0, color: chartConfig.series[0].color, fillColor: chartConfig.series[0].fillColor, zIndex: 1, tooltip: { valuePrefix: '$' } },
+      { name: 'ROI confirmed (%)', type: 'spline', data: data.map(d => d.roi), yAxis: 1, color: chartConfig.series[1].color, zIndex: 1, tooltip: { valueSuffix: '%' } },
+      { name: 'CPA ($)', type: 'column', data: data.map(d => d.cpa), yAxis: 0, color: chartConfig.series[2].color, zIndex: 0, tooltip: { valuePrefix: '$' } },
+      { name: 'Conversions', type: 'line', data: data.map(d => d.conversions), yAxis: 3, color: chartConfig.series[3].color, zIndex: 1 },
+    ],
+    plotOptions: {
+      series: { animation: { duration: 800 }, marker: { enabled: true, radius: 3 } },
+      area: { fillOpacity: 0.3, marker: { enabled: false }, lineWidth: 2 },
+      spline: { lineWidth: 3, marker: { enabled: false } },
+      line: { lineWidth: 2, marker: { symbol: 'square', radius: 4 } },
+      column: { opacity: 0.75, borderWidth: 0, borderRadius: 2 },
     },
-    column: {
-      opacity: 0.75,
-      borderWidth: 0,
-      borderRadius: 2,
-    },
-  },
-  credits: { enabled: false },
-});
+    credits: { enabled: false },
+  };
+
+  if (chart) chart.destroy();
+  chart = Highcharts.chart('container', opts);
+}
+
+function getInitData() {
+  return chartData.dates.map((d, i) => ({
+    date: d,
+    cost: chartData.series[0].data[i],
+    roi: chartData.series[1].data[i],
+    cpa: chartData.series[2].data[i],
+    conversions: chartData.series[3].data[i],
+  }));
+}
+
+function toggleEditor() {
+  const hidden = editorEl.style.display === 'none' || !editorEl.style.display;
+  editorEl.style.display = hidden ? 'block' : 'none';
+  toggleBtn.textContent = hidden ? 'Hide editor' : 'Use your own data';
+}
+
+function validateData(arr) {
+  if (!Array.isArray(arr)) return 'JSON must be an array';
+  if (arr.length === 0) return 'Array must not be empty';
+  const required = ['date', 'cost', 'roi', 'cpa', 'conversions'];
+  for (let i = 0; i < arr.length; i++) {
+    const row = arr[i];
+    for (const key of required) {
+      if (!(key in row)) return `Row ${i + 1}: missing field "${key}"`;
+    }
+    if (typeof row.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.date))
+      return `Row ${i + 1}: "date" must be "YYYY-MM-DD"`;
+    if (typeof row.cost !== 'number') return `Row ${i + 1}: "cost" must be a number`;
+    if (typeof row.roi !== 'number') return `Row ${i + 1}: "roi" must be a number`;
+    if (typeof row.cpa !== 'number') return `Row ${i + 1}: "cpa" must be a number`;
+    if (typeof row.conversions !== 'number') return `Row ${i + 1}: "conversions" must be a number`;
+  }
+  return null;
+}
+
+function applyJson() {
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonInput.value);
+  } catch (e) {
+    jsonInput.classList.add('error');
+    const match = e.message.match(/position (\d+)/);
+    const pos = match ? parseInt(match[1]) : null;
+    const line = pos !== null ? jsonInput.value.slice(0, pos).split('\n').length : '?';
+    errorMsg.textContent = `Invalid JSON at line ${line}: ${e.message}`;
+    return;
+  }
+
+  const err = validateData(parsed);
+  if (err) {
+    jsonInput.classList.add('error');
+    errorMsg.textContent = err;
+    return;
+  }
+
+  jsonInput.classList.remove('error');
+  errorMsg.textContent = '';
+  renderChart(parsed);
+}
+
+function resetData() {
+  const data = getInitData();
+  jsonInput.value = JSON.stringify(data, null, 2);
+  jsonInput.classList.remove('error');
+  errorMsg.textContent = '';
+  renderChart(data);
+}
+
+// Init
+const initData = getInitData();
+jsonInput.value = JSON.stringify(initData, null, 2);
+renderChart(initData);
 </script>
 </body>
 </html>

@@ -24,12 +24,6 @@ class ChartBuilder:
         self._data = data
         self._series_configs = series_configs
         self._config = config or ChartConfig()
-        self._series_data_map: dict[str, list[float | int]] = {
-            "Cost ($)": [float(v) for v in data.costs],
-            "ROI confirmed (%)": [float(v) for v in data.rois],
-            "CPA ($)": [float(v) for v in data.cpas],
-            "Conversions": list(data.conversions_values),
-        }
 
     def build(self) -> go.Figure:
         """Construct and return the complete Plotly figure."""
@@ -46,7 +40,7 @@ class ChartBuilder:
 
         for i in bar_indices + other_indices:
             cfg = self._series_configs[i]
-            y_values = self._series_data_map[cfg.name]
+            y_values = [getattr(p, cfg.field_name) for p in self._data.points]
             yaxis_key = self._yaxis_ref(i)
             trace = self._create_trace(cfg, date_strings, y_values, yaxis_key)
             fig.add_trace(trace)
@@ -56,7 +50,7 @@ class ChartBuilder:
         return fig
 
     def _format_dates(self) -> list[str]:
-        return [d.strftime(self._config.date_format) for d in self._data.dates]
+        return [d.strftime("%d.%m.%Y") for d in self._data.dates]
 
     @staticmethod
     def _yaxis_ref(index: int) -> str:
@@ -90,7 +84,7 @@ class ChartBuilder:
             fillcolor=cfg.fill_color,
             line={"color": cfg.color, "width": cfg.line_width},
             yaxis=yaxis,
-            hovertemplate=f"{cfg.hover_format}<extra></extra>",
+            hovertemplate=f"{cfg.name}: %{{y}}<extra></extra>",
         )
 
     @staticmethod
@@ -109,7 +103,7 @@ class ChartBuilder:
                 "smoothing": 1.3,
             },
             yaxis=yaxis,
-            hovertemplate=f"{cfg.hover_format}<extra></extra>",
+            hovertemplate=f"{cfg.name}: %{{y}}<extra></extra>",
         )
 
     @staticmethod
@@ -128,7 +122,7 @@ class ChartBuilder:
             line={"color": cfg.color, "width": cfg.line_width},
             marker=marker,
             yaxis=yaxis,
-            hovertemplate=f"{cfg.hover_format}<extra></extra>",
+            hovertemplate=f"{cfg.name}: %{{y}}<extra></extra>",
         )
 
     @staticmethod
@@ -142,7 +136,7 @@ class ChartBuilder:
             marker={"color": cfg.color, "opacity": 0.7},
             width=0.5,
             yaxis=yaxis,
-            hovertemplate=f"{cfg.hover_format}<extra></extra>",
+            hovertemplate=f"{cfg.name}: %{{y}}<extra></extra>",
         )
 
     def _build_layout(self, date_strings: list[str]) -> dict[str, Any]:
@@ -186,11 +180,11 @@ class ChartBuilder:
     def _build_yaxis(cfg: SeriesConfig, *, is_primary: bool) -> dict[str, Any]:
         """Build a single Y-axis configuration."""
         axis: dict[str, Any] = {
-            "side": cfg.axis_side,
+            "side": cfg.axis_side.value,
         }
 
         if cfg.visible_axis:
-            axis["title"] = {"text": cfg.y_axis_label, "font": {"color": cfg.color}}
+            axis["title"] = {"text": cfg.name, "font": {"color": cfg.color}}
             axis["tickfont"] = {"color": cfg.color}
             axis["showticklabels"] = True
             axis["showline"] = True

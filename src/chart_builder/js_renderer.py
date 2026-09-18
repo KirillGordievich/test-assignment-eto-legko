@@ -4,20 +4,25 @@ from __future__ import annotations
 
 import json
 import webbrowser
+from functools import lru_cache
 from importlib.resources import files
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 
 from chart_builder.models import ChartConfig, ChartData
-from chart_builder.series import SeriesConfig, SeriesType
+from chart_builder.series import AxisSide, SeriesConfig, SeriesType
 
-_SERIES_TYPE_MAP: dict[SeriesType, str] = {
-    SeriesType.AREA: "area",
-    SeriesType.SPLINE: "spline",
-    SeriesType.LINE: "line",
-    SeriesType.BAR: "column",
-}
+
+def _highcharts_type(series_type: SeriesType) -> str:
+    """Map internal SeriesType to Highcharts chart type name."""
+    return "column" if series_type == SeriesType.BAR else series_type.value
+
+
+@lru_cache(maxsize=1)
+def _load_template() -> str:
+    template_file = files("chart_builder").joinpath("templates/chart.html")
+    return template_file.read_text(encoding="utf-8")
 
 
 class JsChartRenderer:
@@ -33,11 +38,7 @@ class JsChartRenderer:
         output_path: Path | None = None,
     ) -> Path:
         """Build HTML with embedded Highcharts config and write to file."""
-        template = self._load_template()
-        chart_json = self._build_chart_json(data, series_configs)
-
-        html = template.replace("{{ TITLE }}", data.title)
-        html = html.replace("{{ DATA_JSON }}", json.dumps(chart_json, indent=2))
+        html = self._render_to_string(data, series_configs)
 
         if output_path is not None:
             output_path.write_text(html, encoding="utf-8")
@@ -53,41 +54,44 @@ class JsChartRenderer:
             f.write(html)
             return Path(f.name)
 
+    def _render_to_string(
+        self, data: ChartData, series_configs: list[SeriesConfig]
+    ) -> str:
+        """Build the complete HTML string without writing to disk."""
+        template = _load_template()
+        chart_json = self._build_chart_json(data, series_configs)
+        chart_config = self._build_chart_config(series_configs)
+
+        html = template.replace("{{ TITLE }}", data.title)
+        html = html.replace("{{ DATA_JSON }}", json.dumps(chart_json, indent=2))
+        html = html.replace("{{ CHART_CONFIG }}", json.dumps(chart_config, indent=2))
+        return html
+
     @staticmethod
     def open_in_browser(path: Path) -> None:
         """Open an HTML file in the default browser."""
         webbrowser.open(path.as_uri())
 
     @staticmethod
-    def _load_template() -> str:
-        template_file = files("chart_builder").joinpath("templates/chart.html")
-        return template_file.read_text(encoding="utf-8")
-
     def _build_chart_json(
-        self, data: ChartData, series_configs: list[SeriesConfig]
+        data: ChartData, series_configs: list[SeriesConfig]
     ) -> dict[str, Any]:
         """Convert ChartData + SeriesConfig list into Highcharts-compatible JSON."""
-        dates = [d.strftime(self._config.date_format) for d in data.dates]
-
-        data_map: dict[str, list[float | int]] = {
-            "Cost ($)": [float(v) for v in data.costs],
-            "ROI confirmed (%)": [float(v) for v in data.rois],
-            "CPA ($)": [float(v) for v in data.cpas],
-            "Conversions": list(data.conversions_values),
-        }
+        dates = [d.isoformat() for d in data.dates]
 
         y_axes: list[dict[str, Any]] = []
         series_list: list[dict[str, Any]] = []
 
         for i, cfg in enumerate(series_configs):
-            y_axes.append(self._build_yaxis(cfg, is_first=(i == 0)))
+            y_axes.append(JsChartRenderer._build_yaxis(cfg))
 
             yaxis_idx = cfg.shared_yaxis if cfg.shared_yaxis is not None else i
+            values = [getattr(p, cfg.field_name) for p in data.points]
 
             series_entry: dict[str, Any] = {
                 "name": cfg.name,
-                "type": _SERIES_TYPE_MAP[cfg.series_type],
-                "data": data_map[cfg.name],
+                "type": _highcharts_type(cfg.series_type),
+                "data": values,
                 "yAxis": yaxis_idx,
                 "color": cfg.color,
                 "zIndex": 0 if cfg.series_type == SeriesType.BAR else 1,
@@ -111,12 +115,19 @@ class JsChartRenderer:
         }
 
     @staticmethod
-    def _build_yaxis(cfg: SeriesConfig, *, is_first: bool) -> dict[str, Any]:
-        """Build a single Highcharts yAxis config."""
-        opposite = cfg.axis_side == "right"
+    def _build_chart_config(series_configs: list[SeriesConfig]) -> dict[str, Any]:
+        """Build config passed to JS for dynamic chart rebuilds."""
+        series_info = [
+            {"color": cfg.color, "fillColor": cfg.fill_color} for cfg in series_configs
+        ]
+        y_axes = [JsChartRenderer._build_yaxis(cfg) for cfg in series_configs]
+        return {"series": series_info, "yAxes": y_axes}
 
+    @staticmethod
+    def _build_yaxis(cfg: SeriesConfig) -> dict[str, Any]:
+        """Build a single Highcharts yAxis config."""
         axis: dict[str, Any] = {
-            "opposite": opposite,
+            "opposite": cfg.axis_side == AxisSide.RIGHT,
             "title": {"text": None},
             "labels": {"enabled": False},
             "lineWidth": 0,
