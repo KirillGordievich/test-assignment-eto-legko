@@ -1,8 +1,7 @@
 """Entry point: ``uv run python -m chart_builder``."""
 
-from chart_builder.chart import ChartBuilder
 from chart_builder.demo_data import get_demo_data
-from chart_builder.renderer import ChartRenderer
+from chart_builder.js_renderer import JsChartRenderer
 from chart_builder.series import get_default_series_configs
 
 
@@ -12,11 +11,8 @@ def main() -> None:
     data = get_demo_data()
     series_configs = get_default_series_configs()
 
-    builder = ChartBuilder(data, series_configs)
-    fig = builder.build()
-
-    renderer = ChartRenderer()
-    path = renderer.render_to_html(fig)
+    renderer = JsChartRenderer()
+    path = renderer.render(data, series_configs)
     print(f"Chart saved to: {path}")
     renderer.open_in_browser(path)
 

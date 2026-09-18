@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ TITLE }}</title>
+<script src="https://cdn.jsdelivr.net/npm/highcharts@11/highcharts.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+  #container { width: 1200px; height: 600px; }
+</style>
+</head>
+<body>
+<div id="container"></div>
+<script>
+const chartData = {{ DATA_JSON }};
+
+Highcharts.chart('container', {
+  chart: {
+    backgroundColor: '#FFF0F3',
+    style: { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+    spacingTop: 20,
+    spacingRight: 20,
+    spacingBottom: 10,
+    spacingLeft: 10,
+  },
+  title: { text: null },
+  legend: { enabled: false },
+  tooltip: {
+    shared: true,
+    crosshairs: true,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: '#ccc',
+    borderRadius: 8,
+    shadow: true,
+    style: { fontSize: '12px' },
+  },
+  xAxis: {
+    categories: chartData.dates,
+    crosshair: { width: 1, color: 'rgba(0,0,0,0.15)' },
+    labels: { enabled: false },
+    lineWidth: 0,
+    tickLength: 0,
+    gridLineWidth: 0,
+  },
+  yAxis: chartData.yAxes,
+  series: chartData.series,
+  plotOptions: {
+    series: {
+      animation: { duration: 800 },
+      marker: { enabled: true, radius: 3 },
+    },
+    area: {
+      fillOpacity: 0.3,
+      marker: { enabled: false },
+      lineWidth: 2,
+    },
+    spline: {
+      lineWidth: 3,
+      marker: { enabled: false },
+    },
+    line: {
+      lineWidth: 2,
+      marker: { symbol: 'square', radius: 4 },
+    },
+    column: {
+      opacity: 0.75,
+      borderWidth: 0,
+      borderRadius: 2,
+    },
+  },
+  credits: { enabled: false },
+});
+</script>
+</body>
+</html>

@@ -30,6 +30,7 @@ class SeriesConfig(BaseModel):
     hover_format: str = "%{y}"
     visible_axis: bool = True
     axis_side: str = "left"
+    shared_yaxis: int | None = None
 
 
 def get_default_series_configs() -> list[SeriesConfig]:
@@ -57,20 +58,22 @@ def get_default_series_configs() -> list[SeriesConfig]:
         ),
         SeriesConfig(
             name="CPA ($)",
-            series_type=SeriesType.LINE,
-            color="#7B1FA2",
-            line_width=2,
-            marker_symbol="square",
+            series_type=SeriesType.BAR,
+            color="#1976D2",
+            line_width=0,
             y_axis_label="CPA ($)",
             tick_prefix="$",
             hover_format="CPA: $%{y:.2f}",
             visible_axis=False,
+            shared_yaxis=0,
         ),
         SeriesConfig(
             name="Conversions",
-            series_type=SeriesType.BAR,
-            color="#1976D2",
-            line_width=0,
+            series_type=SeriesType.LINE,
+            color="#9C27B0",
+            line_width=2,
+            marker_symbol="square",
+            marker_size=5,
             y_axis_label="Conversions",
             hover_format="Conversions: %{y}",
             visible_axis=False,
